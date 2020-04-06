@@ -7,8 +7,10 @@ function Mat4x4Parallel(mat4x4, prp, srp, vup, clip) {
     // 2. rotate VRC such that (u,v,n) align with (x,y,z)
     var rotateVRC = new Matrix(4, 4);
     // calculate the u, v, n vectors
-    var n = prp.subtract(srp).normalize();
-    var u = vup.cross(n).normalize();
+    var n = prp.subtract(srp);
+    n.normalize();
+    var u = vup.cross(n);
+    u.normalize();
     var v = n.cross(u);
     rotateVRC.values = [[u.x, u.y, u.z, 0],
                         [v.x, v.y, v.z, 0],
@@ -17,8 +19,10 @@ function Mat4x4Parallel(mat4x4, prp, srp, vup, clip) {
 
     // 3. shear such that CW is on the z-axis
     var shpar = new Matrix(4, 4);
-    var cw = Vector3((clip[0] + clip[1]) / 2, (clip[2] + clip[3])/2, 0);
-    var dop = cw.subtract(prp);
+    var cw = Vector3((clip[0] + clip[1]) / 2, (clip[2] + clip[3])/2, -clip[4]);
+    // Use view reference coordinate of prp (0, 0, 0)
+    var dop = cw;
+    dop.normalize();
     var shx = -dop.x / dop.z;
     var shy = -dop.y / dop.z;
     Mat4x4ShearXY(shpar, shx, shy);
@@ -48,7 +52,7 @@ function Mat4x4Perspective(mat4x4, prp, srp, vup, clip) {
     var rotateVRC = new Matrix(4,4);
     var n = prp.subtract(srp).normalize();
     var u = vup.cross(n).normalize();
-    var v - n.cross(u);
+    var v = n.cross(u);
     rotateVRC.values = [[u.x, u.y, u.z, 0],
                         [v.x, v.y, v.z, 0],
                         [n.x, n.y, n.z, 0],
@@ -56,8 +60,8 @@ function Mat4x4Perspective(mat4x4, prp, srp, vup, clip) {
 
     // 3. shear such that CW is on the z-axis
     var shearCW = new Matrix(4,4);
-    var CW = Vector3((clip[0]+clip[1])/2, (clip[2]+clip[3])/2);
-    var DOP = cw.subtract(prp);
+    var CW = Vector3((clip[0]+clip[1])/2, (clip[2]+clip[3])/2, -clip[4]);
+    var DOP = cw.normalize();
     var shx = -DOP.x/DOP.z;
     var shy = -DOP.y/DOP.z;
     Mat4x4ShearXY(shearCW, shx, shy);
