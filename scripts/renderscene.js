@@ -79,23 +79,34 @@ function Animate(timestamp) {
 
     DrawScene();
 
-    //window.requestAnimationFrame(Animate);
+    window.requestAnimationFrame(Animate);
 }
 
 // Main drawing code - use information contained in variable `scene`
 // remember to convert from homogeneous to cartesian
 function DrawScene() {
     // If 'parallel' type, apply parallel projection
-    if(scene.view.type === "parallel") {
+      var transform = new Matrix(4,4);
+      var projection = new Matrix(4,4);
+      if(scene.view.type === 'parallel'){
+        Mat4x4Parallel(transform, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
+        Mat4x4MPar(projection);
+      } else{
+        Mat4x4Perspective(transform, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
+        Mat4x4MPer(projection);
+      }
+   
       // Step 1: Go through each model within the scene and then each vertex
       // Create transform Matrix
-      var transformPar = new Matrix(4, 4);
-      Mat4x4Parallel(transformPar, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
-
+      //var transformPar = new Matrix(4, 4);
+      //Mat4x4Parallel(transformPar, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
+      //console.log(transformPar.values);
       for(var i = 0; i < scene.models.length; i++) {
         for(var j = 0; j < scene.models[i].vertices.length; j++) {
           // Step 2: Multiply each vertex by Mat4x4Parallel
-          scene.models[i].vertices[j] = Matrix.multiply([transformPar, scene.models[i].vertices[j]]);
+          scene.models[i].vertices[j] = Matrix.multiply([transform, scene.models[i].vertices[j]]);
+          
+
 
 
         }
@@ -106,7 +117,12 @@ function DrawScene() {
           for(var k = 0; k < scene.models[i].edges[j].length - 1; k++) {
             var indexPt0 = scene.models[i].edges[j][k];
             var indexPt1 = scene.models[i].edges[j][k+1];
-            var line = clipPar(scene.models[i].vertices[indexPt0], scene.models[i].vertices[indexPt1]);
+            var line;
+            if(scene.view.type === 'parallel'){
+              line = clipPar(scene.models[i].vertices[indexPt0], scene.models[i].vertices[indexPt1]);
+            } else {
+              line = clipPer(scene.models[i].vertices[indexPt0], scene.models[i].vertices[indexPt1]);
+            }
             scene.models[i].vertices[indexPt0] = line.pt0;
             scene.models[i].vertices[indexPt1] = line.pt1;
           }
@@ -114,8 +130,8 @@ function DrawScene() {
       }
 
       // Step 4: Apply the Mat4x4MPar matrix to each vertex to do projection
-      var mpar = new Matrix(4, 4);
-      Mat4x4MPar(mpar);
+      //var mpar = new Matrix(4, 4);
+      //Mat4x4MPar(mpar);
       var projToWindow = new Matrix(4, 4);
       projToWindow.values = [[view.width/2, 0,             0, view.width/2],
                              [0,            view.height/2, 0, view.height/2],
@@ -123,18 +139,14 @@ function DrawScene() {
                              [0,            0,             0, 1]];
       for(var i = 0; i < scene.models.length; i++) {
         for(var j = 0; j < scene.models[i].vertices.length; j++) {
-          scene.models[i].vertices[j] = Matrix.multiply([mpar, scene.models[i].vertices[j]]);
+          //console.log(projection);
+          //console.log(scene.models[i].vertices[j]);
+          scene.models[i].vertices[j] = Matrix.multiply([projection, scene.models[i].vertices[j]]);
+          //console.log(scene.models[i].vertices[j]);
           scene.models[i].vertices[j] = Matrix.multiply([projToWindow, scene.models[i].vertices[j]]);
         }
       }
-    }
-    // If 'perspective' type, apply perspective projection
-    else if (scene.view.type === "perspective") {
-      // Step 1: Go through each model within the scene, and then through each vertex
-      // Step 2: Multiple each vertex by Mat4x4Perspective
-      // Step 3: Implement the 3D clipping algorithm
-      // Step 4: Apply the Mat4x4MPer matrix to each vertex to do projection
-    }
+     
 
     // Draw 2D lines
     for(var i = 0; i < scene.models.length; i++) {
@@ -146,7 +158,7 @@ function DrawScene() {
         }
       }
     }
-    console.log(scene.models[0].vertices);
+   // console.log(scene.models[0].vertices);
 }
 
 // Draws a 2D line from pt0 to pt1 in indicated color
@@ -182,18 +194,21 @@ function outcodePar(pt) {
 
 // Ask about what z value is
 // Calculates the outcode for a perspective projection
-/*
+
 function outcodePer(pt) {
 	var outcode = 0;
-	if (pt.x < view.x_min) outcode += LEFT;
-	else if (pt.x > view.x_max) outcode += RIGHT;
-	if (pt.y < view.y_min) outcode += BOTTOM;
-	else if (pt.y > view.y_max) outcode += TOP;
-//  if (pt.z < view.z_)
+  var zMin = -scene.view.clip[4]/scene.view.clip[5];
+	if (pt.x < pt.z) outcode += LEFT;
+  else if (pt.x > -pt.z) outcode += RIGHT;
+  if (pt.y < pt.z) outcode += BOTTOM;
+  else if (pt.y > -pt.z) outcode += TOP;
+  if (pt.z > zMin) outcode += NEAR;
+  else if (pt.z < zMin) outcode += FAR;
+
 
 	return outcode;
 }
-*/
+
 
 // Clips the 3D line against the parallel view volume
 function clipPar(pt0, pt1) {
@@ -265,17 +280,17 @@ function clipPar(pt0, pt1) {
 }
 
 // Clips the 3D line against the perspective view volume
-/*
 
-function clipPer(pt0, pt1, view) {
+
+function clipPer(pt0, pt1) {
 	var done = false;
 	var line = null;
-	var endpt0 = {x: pt0.x, y: pt0.y, z: pt0.z};
-	var endpt1 = {x: pt1.x, y: pt1.y, z: pt1.z};
+	var endpt0 = new Vector4(pt0.x, pt0.y, pt0.z, pt0.w);
+	var endpt1 = new Vector4(pt1.x, pt1.y, pt1.z, pt1.w);
 	var outcode0, outcode1, selected_outcode, t;
 	while(!done) {
-		outcode0 = outcode(endpt0, view);
-		outcode1 = outcode(endpt1, view);
+		outcode0 = outcodePer(endpt0);
+		outcode1 = outcodePer(endpt1);
 
 		// check for a trivial accept
 		if((outcode0 | outcode1) === 0) {
@@ -285,6 +300,7 @@ function clipPer(pt0, pt1, view) {
 		// check for a trivial reject
 		else if((outcode0 & outcode1) !== 0) {
 			done = true;
+      line = {pt0: endpt0, pt1: endpt1};
 		}
 		else {
 			// select an enpoint outside the view
@@ -298,33 +314,46 @@ function clipPer(pt0, pt1, view) {
 			}
 
 			//find first bit set to 1 in the selected endpoint's outcode
+      var changeX = endpt1.x-endpt0.x;
+      var changeY = endpt1.y-endpt0.y;
+      var changeZ = endpt1.z-endpt0.z;
+      var zMin = -scene.view.clip[4]/scene.view.clip[5];
+
 			if(selected_outcode >= LEFT) {
-				t = (view.x_min - endpt0.x) / (endpt1.x - endpt0.x);
-			}
-			else if(selected_outcode >= RIGHT) {
-				t = (view.x_max - endpt0.x) / (endpt1.x - endpt0.x);
-			}
-			else if(selected_outcode >= BOTTOM) {
-				t = (view.y_min - endpt0.y) / (endpt1.y - endpt0.y);
-			}
-			else {
-				t = (view.y_max - endpt0.y) / (endpt1.y - endpt0.y);
-			}
+        t = ( -endpt0.x+endpt0.z) / (changeX-changeZ);
+      }
+      else if(selected_outcode >= RIGHT) {
+        t = ( endpt0.x+endpt0.z) / (-changeX-changeZ);
+      }
+      else if(selected_outcode >= BOTTOM) {
+        t = ( -endpt0.y+endpt0.z) / (changeY-changeZ);
+      }
+      else if(selected_outcode >= TOP){
+        t = (endpt0.y+endpt0.z) / (-changeY-changeZ);
+      }
+      else if(selected_outcode >= NEAR) {
+        t = (endpt0.z-zMin) / (-changeZ);
+      }
+      else {
+        t = (-endpt0.z-1) / (changeZ);
+      }
 
 
 			if(selected_outcode === outcode0) {
 				endpt0.x = endpt0.x + t * (endpt1.x - endpt0.x);
 				endpt0.y = endpt0.y + t * (endpt1.y - endpt0.y);
+        endpt0.z = endpt0.z + t * (endpt1.z - endpt0.z);
 			}
 			else {
 				endpt1.x = endpt0.x + t * (endpt1.x - endpt0.x);
 				endpt1.y = endpt0.y + t * (endpt1.y - endpt0.y);
+        endpt1.z = endpt0.z + t * (endpt1.z - endpt0.z);
 			}
 		}
 	}
 	return line;
 }
-*/
+
 
 // Called when user selects a new scene JSON file
 function LoadNewScene() {
@@ -364,6 +393,8 @@ function LoadNewScene() {
 function OnKeyDown(event) {
     switch (event.keyCode) {
         case 37: // LEFT Arrow
+            scene.view.prp.x = scene.view.prp.x -1;
+            console.log(scene.view.prp.x);
             console.log("left");
             break;
         case 38: // UP Arrow
@@ -375,6 +406,7 @@ function OnKeyDown(event) {
         case 40: // DOWN Arrow
             console.log("down");
             break;
+
     }
 }
 
