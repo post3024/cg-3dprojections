@@ -22,7 +22,7 @@ function Init() {
     // initial scene... feel free to change this
     scene = {
         view: {
-            type: 'parallel',
+            type: 'perspective',
             prp: Vector3(44, 20, -16),
             srp: Vector3(20, 20, -40),
             vup: Vector3(0, 1, 0),
@@ -63,6 +63,7 @@ function Init() {
     // start animation loop
     start_time = performance.now(); // current timestamp in milliseconds
     window.requestAnimationFrame(Animate);
+
 }
 
 // Animation loop - repeatedly calls rendering code
@@ -101,14 +102,13 @@ function DrawScene() {
       //var transformPar = new Matrix(4, 4);
       //Mat4x4Parallel(transformPar, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
       //console.log(transformPar.values);
+      var transformModelVert = [];
       for(var i = 0; i < scene.models.length; i++) {
+        transformModelVert.push([]);
         for(var j = 0; j < scene.models[i].vertices.length; j++) {
           // Step 2: Multiply each vertex by Mat4x4Parallel
-          scene.models[i].vertices[j] = Matrix.multiply([transform, scene.models[i].vertices[j]]);
+          transformModelVert[i].push(Matrix.multiply([transform, scene.models[i].vertices[j]]));
           
-
-
-
         }
       }
       // Step 3: Implement the 3D clipping algorithm
@@ -119,10 +119,12 @@ function DrawScene() {
             var indexPt1 = scene.models[i].edges[j][k+1];
             var line;
             if(scene.view.type === 'parallel'){
-              line = clipPar(scene.models[i].vertices[indexPt0], scene.models[i].vertices[indexPt1]);
+              line = clipPar(transformModelVert[i][indexPt0], transformModelVert[i][indexPt1]);
             } else {
-              line = clipPer(scene.models[i].vertices[indexPt0], scene.models[i].vertices[indexPt1]);
+              line = clipPer(transformModelVert[i][indexPt0], transformModelVert[i][indexPt1]);
             }
+            //if line not null  step 4
+            //call draw line
             scene.models[i].vertices[indexPt0] = line.pt0;
             scene.models[i].vertices[indexPt1] = line.pt1;
           }
