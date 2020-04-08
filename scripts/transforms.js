@@ -35,7 +35,7 @@ function Mat4x4Parallel(mat4x4, prp, srp, vup, clip) {
     var spar = new Matrix(4, 4);
     var sparx = 2 / (clip[1] - clip[0]);
     var spary = 2 / (clip[3] - clip[2]);
-    var sparz = 1 / clip[5];
+    var sparz = 1 / (clip[5]-clip[4]);
     Mat4x4Scale(spar, sparx, spary, sparz);
 
     // Multiply all matrices together
@@ -50,8 +50,10 @@ function Mat4x4Perspective(mat4x4, prp, srp, vup, clip) {
     Mat4x4Translate(translateOrg, -prp.x, -prp.y, -prp.z); //translare prp to origin
     // 2. rotate VRC such that (u,v,n) align with (x,y,z)
     var rotateVRC = new Matrix(4,4);
-    var n = prp.subtract(srp).normalize();
-    var u = vup.cross(n).normalize();
+    var n = prp.subtract(srp);
+    n.normalize();
+    var u = vup.cross(n);
+    u.normalize();
     var v = n.cross(u);
     rotateVRC.values = [[u.x, u.y, u.z, 0],
                         [v.x, v.y, v.z, 0],
@@ -61,15 +63,16 @@ function Mat4x4Perspective(mat4x4, prp, srp, vup, clip) {
     // 3. shear such that CW is on the z-axis
     var shearCW = new Matrix(4,4);
     var CW = Vector3((clip[0]+clip[1])/2, (clip[2]+clip[3])/2, -clip[4]);
-    var DOP = cw.normalize();
+    var DOP = CW;
+    CW.normalize();
     var shx = -DOP.x/DOP.z;
     var shy = -DOP.y/DOP.z;
     Mat4x4ShearXY(shearCW, shx, shy);
     // 4. scale such that view volume bounds are ([z,-z], [z,-z], [-1,zmin])
     var scaleView = new Matrix(4,4);
-    var sPerX = (2*clip[4])/(clip[1].subtract(clip[0])*clip[5]);
-    var sPerY = (2*clip[4])/(clip[3].subtract(clip[2])*clip[5]);
-    var sperZ = 1/ clip[5];
+    var sPerX = (2*clip[4])/((clip[1]-clip[0])*clip[5]);
+    var sPerY = (2*clip[4])/((clip[3]-clip[2])*clip[5]);
+    var sPerZ = 1/ clip[5];
 
     Mat4x4Scale(scaleView, sPerX, sPerY, sPerZ);
     // ...
@@ -95,6 +98,7 @@ function Mat4x4MPer(mat4x4) {
                      [0,1,0,0],
                      [0,0,1,0],
                      [0,0,-1,0]];
+
 }
 
 
