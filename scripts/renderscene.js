@@ -22,7 +22,7 @@ function Init() {
     // initial scene... feel free to change this
     scene = {
         view: {
-          type: 'perspective',
+          type: 'parallel',
           prp: Vector3(44, 20, -16),
           srp: Vector3(20, 20, -40),
           vup: Vector3(0, 1, 0),
@@ -62,7 +62,7 @@ function Init() {
 
     // start animation loop
     start_time = performance.now(); // current timestamp in milliseconds
-    window.requestAnimationFrame(Animate);
+   window.requestAnimationFrame(Animate);
 
 }
 
@@ -107,6 +107,7 @@ function DrawScene() {
       Mat4x4Perspective(transform, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
       Mat4x4MPer(projection);
     }
+    console.log(transform);
 
 
     // Step 1: Go through each model within the scene and then each vertex
@@ -116,8 +117,8 @@ function DrawScene() {
       for(var j = 0; j < scene.models[i].vertices.length; j++) {
         // Step 2: Multiply each vertex by transform matrix
         transformModelVert[i].push(Matrix.multiply([transform, scene.models[i].vertices[j]]));
-console.log(transformModelVert[i][j]);
-      }
+        console.log(transformModelVert[i][j]);
+                }
     }
 
     // Step 3: Implement the 3D clipping algorithm
@@ -360,6 +361,7 @@ function LoadNewScene() {
               var height = scene.models[i].height;
               var depth = scene.models[i].depth;
               console.log(center[2] + depth/2);
+              scene.models[i].vertices =[];
               scene.models[i].vertices.push(Vector4(center[0] - width/2, center[1] - height/2, center[2] + depth/2, 1)); // bottom front left
               scene.models[i].vertices.push(Vector4(center[0] + width/2, center[1] - height/2, center[2] + depth/2, 1)); // bottom front right
               scene.models[i].vertices.push(Vector4(center[0] + width/2, center[1] - height/2, center[2] - depth/2, 1)); // bottom back right
@@ -368,7 +370,7 @@ function LoadNewScene() {
               scene.models[i].vertices.push(Vector4(center[0] + width/2, center[1] + height/2, center[2] + depth/2, 1)); // top front right
               scene.models[i].vertices.push(Vector4(center[0] + width/2, center[1] + height/2, center[2] - depth/2, 1)); // top back right
               scene.models[i].vertices.push(Vector4(center[0] - width/2, center[1] + height/2, center[2] - depth/2, 1)); // top back left
-
+              scene.models[i].edges =[];
               scene.models[i].edges.push([0, 1, 2, 3, 0]);
               scene.models[i].edges.push([4, 5, 6, 7, 4]);
               scene.models[i].edges.push([0, 4]);
@@ -457,6 +459,8 @@ function LoadNewScene() {
             }
             scene.models[i].matrix = new Matrix(4, 4);
         }
+        console.log(scene);
+      
     };
     reader.readAsText(scene_file.files[0], "UTF-8");
 }
