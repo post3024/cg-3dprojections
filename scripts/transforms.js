@@ -72,7 +72,7 @@ function Mat4x4Perspective(mat4x4, prp, srp, vup, clip) {
     var scaleView = new Matrix(4,4);
     var sPerX = (2*clip[4])/((clip[1]-clip[0])*clip[5]);
     var sPerY = (2*clip[4])/((clip[3]-clip[2])*clip[5]);
-    var sPerZ = 1/ clip[5];
+    var sPerZ = 1 / clip[5];
 
     Mat4x4Scale(scaleView, sPerX, sPerY, sPerZ);
     // ...
