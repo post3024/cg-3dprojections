@@ -22,7 +22,7 @@ function Init() {
     // initial scene... feel free to change this
     scene = {
         view: {
-          type: 'parallel',
+          type: 'perspective',
           prp: Vector3(44, 20, -16),
           srp: Vector3(20, 20, -40),
           vup: Vector3(0, 1, 0),
@@ -68,27 +68,54 @@ function Init() {
 
 // Animation loop - repeatedly calls rendering code
 function Animate(timestamp) {
-    // step 1: calculate time (time since start)
-    // step 2: transform models based on time
-    // step 3: draw scene
-    // step 4: request next animation frame (recursively calling same function)
-
-    // clear canvas each animation???
+    // clear canvas each animation
     ctx.clearRect(0, 0, view.width, view.height);
 
+    // step 1: calculate time (time since start)
     var time = timestamp - start_time;
+    //console.log("time: ", time / 1000);
 
-    // ... step 2
+    // step 2: transform models based on time
+    var degreePerSec, degree;
+    var rotate = new Matrix(4, 4);
+    var translateToOrigin = new Matrix(4, 4);
+    var translateBack = new Matrix(4, 4);
+    for(var i = 0; i < scene.models.length; i++) {
+      if(scene.models[i].animation) {
+        Mat4x4Translate(translateToOrigin, -scene.models[i].center[0], -scene.models[i].center[1], -scene.models[i].center[2]);
+        Mat4x4Translate(translateBack, scene.models[i].center[0], scene.models[i].center[1], scene.models[i].center[2]);
+        degreePerSec = 360 * scene.models[i].animation.rps;
+        console.log("Degree per sec:", degreePerSec);
+        console.log(time / 1000);
+        degree = (degreePerSec * (time / 1000)) % 360;
+        console.log("degree: ", degree);
+        if(scene.models[i].animation.axis === 'x') {
+          Mat4x4RotateX(rotate, degree * Math.PI / 180);
+        }
+        else if(scene.models[i].animation.axis === 'y') {
+          Mat4x4RotateY(rotate, degree * Math.PI / 180);
+        }
+        else {
+          Mat4x4RotateZ(rotate, degree * Math.PI / 180);
+        }
+        for(var j = 0; j < scene.models[i].vertices.length; j++) {
+          scene.models[i].vertices[j] = Matrix.multiply([translateBack, rotate, translateToOrigin, scene.models[i].vertices[j]]);
+        }
+      }
+    }
 
+    // step 3: draw scene
     DrawScene();
 
+    // step 4: request next animation frame (recursively calling same function)
     window.requestAnimationFrame(Animate);
+
 }
 
 // Main drawing code - use information contained in variable `scene`
 // remember to convert from homogeneous to cartesian
 function DrawScene() {
-
+    //console.log(scene.models[0].vertices);
     var transform = new Matrix(4,4);
     var projection = new Matrix(4,4);
     var projToWindow = new Matrix(4, 4);
@@ -107,7 +134,6 @@ function DrawScene() {
       Mat4x4Perspective(transform, scene.view.prp, scene.view.srp, scene.view.vup, scene.view.clip);
       Mat4x4MPer(projection);
     }
-    console.log(transform);
 
 
     // Step 1: Go through each model within the scene and then each vertex
@@ -117,9 +143,10 @@ function DrawScene() {
       for(var j = 0; j < scene.models[i].vertices.length; j++) {
         // Step 2: Multiply each vertex by transform matrix
         transformModelVert[i].push(Matrix.multiply([transform, scene.models[i].vertices[j]]));
-        console.log(transformModelVert[i][j]);
-                }
+
+      }
     }
+    //console.log("transformed vertices: ", transformModelVert);
 
     // Step 3: Implement the 3D clipping algorithm
     for(var i = 0; i < scene.models.length; i++) {
@@ -132,6 +159,7 @@ function DrawScene() {
           if(scene.view.type === 'parallel'){
             line = clipPar(transformModelVert[i][indexPt0], transformModelVert[i][indexPt1]);
           } else {
+            //console.log(transformModelVert[i][indexPt0], transformModelVert[i][indexPt1]);
             line = clipPer(transformModelVert[i][indexPt0], transformModelVert[i][indexPt1]);
           }
 
@@ -141,7 +169,7 @@ function DrawScene() {
             // multiply each vertex by the projection Matrix
             var pt0 = Matrix.multiply([projToWindow, projection, line.pt0]);
             var pt1 = Matrix.multiply([projToWindow, projection, line.pt1]);
-
+            //console.log(pt0, pt1);
             // draw line from point 0 to point 1
             drawLine(pt0, pt1, '#4287f5');
           }
@@ -360,7 +388,6 @@ function LoadNewScene() {
               var width = scene.models[i].width;
               var height = scene.models[i].height;
               var depth = scene.models[i].depth;
-              console.log(center[2] + depth/2);
               scene.models[i].vertices =[];
               scene.models[i].vertices.push(Vector4(center[0] - width/2, center[1] - height/2, center[2] + depth/2, 1)); // bottom front left
               scene.models[i].vertices.push(Vector4(center[0] + width/2, center[1] - height/2, center[2] + depth/2, 1)); // bottom front right
@@ -380,6 +407,8 @@ function LoadNewScene() {
             }
             // generate vertices array and edge list for a cylinder
             else if (scene.models[i].type === 'cylinder') {
+              scene.models[i].vertices =[];
+              scene.models[i].edges =[];
               var theta = 360 / scene.models[i].sides;
               var center = scene.models[i].center;
               var radius = scene.models[i].radius;
@@ -391,17 +420,18 @@ function LoadNewScene() {
               var currentAngle = theta;
               scene.models[i].vertices.push(Vector4(x, y_low, z, 1));
               scene.models[i].vertices.push(Vector4(x, y_high, z, 1));
-              scene.models[i].edges[0] = [0]; // bottom circle
-              scene.models[i].edges[1] = [1]; // top circle
+              scene.models[i].edges.push([0]); // bottom circle
+              scene.models[i].edges.push([1]); // top circle
               scene.models[i].edges.push([0, 1]);
-              for(var j = 0; j < scene.models[i].sides; j++) {
+              for(var j = 2; j < scene.models[i].sides * 2; j += 2) {
                   var x1 = center[0]  + radius * Math.cos(currentAngle * Math.PI / 180);
                   var z1 = center[2] + radius * Math.sin(currentAngle * Math.PI / 180);
                   scene.models[i].vertices.push(Vector4(x1, y_low, z1, 1));
                   scene.models[i].vertices.push(Vector4(x1, y_high, z1, 1));
-                  scene.models[i].edges[0].push(j+2);
-                  scene.models[i].edges[1].push(j+3);
-                  scene.models[i].edges.push([j+2, j+3]);
+                    scene.models[i].edges[0].push(j);
+                    scene.models[i].edges[1].push(j+1);
+
+                  scene.models[i].edges.push([j, j+1]);
                   currentAngle += theta;
               }
               scene.models[i].edges[0].push(0); // bottom circle
@@ -410,6 +440,8 @@ function LoadNewScene() {
 
             // generate vertices array and edge list for a cone
             else if (scene.models[i].type === 'cone') {
+              scene.models[i].vertices =[];
+              scene.models[i].edges =[];
               var theta = 360 / scene.models[i].sides;
               var center = scene.models[i].center;
               var radius = scene.models[i].radius;
@@ -421,35 +453,64 @@ function LoadNewScene() {
               scene.models[i].vertices.push(Vector4(center[0], center[1] + height/2, center[2], 1));
               scene.models[i].vertices.push(Vector4(x, y_low, z, 1));
               scene.models[i].edges.push([0, 1]);
+              scene.models[i].edges.push([1]);
               for(var j = 0; j < scene.models[i].sides; j++) {
                   var x1 = center[0]  + radius * Math.cos(currentAngle * Math.PI / 180);
                   var z1 = center[2] + radius * Math.sin(currentAngle * Math.PI / 180);
                   scene.models[i].vertices.push(Vector4(x1, y_low, z1, 1));
-                  scene.models[i].edges.push([j+1, 0]);
+                  scene.models[i].edges[1].push(j+2);
+                  scene.models[i].edges.push([j+2, 0]);
                   currentAngle += theta;
               }
             }
 
             // generate vertices array and edge list for a sphere
             else if (scene.models[i].type === 'sphere') {
-              var circleVertices = [];
+              scene.models[i].vertices =[];
+              scene.models[i].edges =[];
+              var center = scene.models[i].center;
+              var radius = scene.models[i].radius;
+              var baseCircleVertices = [];
               // create a circle in the xy plane
               var theta = 360 / (scene.models[i].stacks * 2);
               var x = center[0] + radius;
               var y = center[1];
               var currentAngle = theta;
-              circleVertices.push(Vector4(x, y, center[2]));
-              for(var j = 0; j < scene.models[i].stacks * 2; j++) {
-                  var x1 = Math.round(center[0]  + radius * Math.cos(currentAngle * Math.PI / 180));
-                  var y1 = Math.round(center[1] + radius * Math.sin(currentAngle * Math.PI / 180));
-                  circleVertices.push()
-                  if(this.show_points) {
-                      this.drawCirclePoint({x: x1, y: y1}, [0,0,0,255], framebuffer);
-                  }
-                  x = x1;
-                  y = y1;
-                  currentAngle += theta;
-            }
+              baseCircleVertices.push(Vector4(x, y, center[2], 1));
+              scene.models[i].vertices.push(Vector4(x, y, center[2], 1));
+              scene.models[i].edges.push([0]);
+                for(var j = 1; j < scene.models[i].stacks * 2; j++) {
+                    var x1 = center[0]  + radius * Math.cos(currentAngle * Math.PI / 180);
+                    var y1 = center[1] + radius * Math.sin(currentAngle * Math.PI / 180);
+                    baseCircleVertices.push(Vector4(x1, y1, center[2], 1));
+                    scene.models[i].vertices.push(Vector4(x1, y1, center[2], 1));
+                    scene.models[i].edges[0].push(j);
+                    currentAngle += theta;
+              }
+              scene.models[i].edges[0].push(0);
+
+              var degree = 360 / scene.models[i].slices;
+              var translateToOrigin = new Matrix(4, 4);
+              var rotate = new Matrix(4, 4);
+              var translateBack = new Matrix(4, 4);
+              Mat4x4Translate(translateToOrigin, -center[0], -center[1], -center[2]);
+              Mat4x4RotateY(rotate, degree * Math.PI / 180);
+              Mat4x4Translate(translateBack, center[0], center[1], center[2]);
+
+              for(var k = 0; k < (scene.models[i].slices / 2) - 1; k++) {
+                scene.models[i].edges.push([]);
+                var beginning_edge = scene.models[i].vertices.length;
+                for(var l = 0; l < baseCircleVertices.length; l++) {
+                  baseCircleVertices[l] = Matrix.multiply([translateBack, rotate, translateToOrigin, baseCircleVertices[l]]);
+                  scene.models[i].vertices.push(baseCircleVertices[l]);
+
+                  scene.models[i].edges[k+1].push(scene.models[i].vertices.length - 1);
+                }
+                scene.models[i].edges[k+1].push(beginning_edge);
+              }
+
+//console.log("edges:", scene.models[i].edges);
+
           }
             else {
                 scene.models[i].center = Vector4(scene.models[i].center[0],
@@ -459,8 +520,8 @@ function LoadNewScene() {
             }
             scene.models[i].matrix = new Matrix(4, 4);
         }
-        console.log(scene);
-      
+        DrawScene();
+
     };
     reader.readAsText(scene_file.files[0], "UTF-8");
 }
@@ -469,8 +530,20 @@ function LoadNewScene() {
 function OnKeyDown(event) {
     switch (event.keyCode) {
         case 37: // LEFT Arrow
-            scene.view.prp.x = scene.view.prp.x - 1;
-            scene.view.srp.x = scene.view.srp.x - 1;
+            var rotate = new Matrix(4, 4);
+            var translate = new Matrix(4, 4);
+            Mat4x4Translate(translate, -scene.view.prp.x, -scene.view.prp.y, -scene.view.prp.z);
+            Mat4x4RotateY(rotate, -0.1);
+            var srp = Vector4(scene.view.srp.x, scene.view.srp.y, scene.view.srp.z, 1);
+            var prp = Vector4(scene.view.prp.x, scene.view.prp.y, scene.view.prp.z, 1);
+            srp = Matrix.multiply([rotate, srp]);
+            prp = Matrix.multiply([rotate, prp]);
+            scene.view.srp.x = srp.x;
+            scene.view.srp.y = srp.y;
+            scene.view.srp.z = srp.z;
+            scene.view.prp.x = prp.x;
+            scene.view.prp.y = prp.y;
+            scene.view.prp.z = prp.z;
             console.log("left");
             break;
         case 38: // UP Arrow
@@ -479,8 +552,20 @@ function OnKeyDown(event) {
             console.log("up");
             break;
         case 39: // RIGHT Arrow
-            scene.view.prp.x = scene.view.prp.x + 1;
-            scene.view.srp.x = scene.view.srp.x + 1;
+            var rotate = new Matrix(4, 4);
+            var translate = new Matrix(4, 4);
+            Mat4x4Translate(translate, -scene.view.prp.x, -scene.view.prp.y, -scene.view.prp.z);
+            Mat4x4RotateY(rotate, 0.1);
+            var srp = Vector4(scene.view.srp.x, scene.view.srp.y, scene.view.srp.z, 1);
+            var prp = Vector4(scene.view.prp.x, scene.view.prp.y, scene.view.prp.z, 1);
+            srp = Matrix.multiply([rotate, srp]);
+            prp = Matrix.multiply([rotate, prp]);
+            scene.view.srp.x = srp.x;
+            scene.view.srp.y = srp.y;
+            scene.view.srp.z = srp.z;
+            scene.view.prp.x = prp.x;
+            scene.view.prp.y = prp.y;
+            scene.view.prp.z = prp.z;
             console.log("right");
             break;
         case 40: // DOWN Arrow

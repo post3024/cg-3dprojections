@@ -1,0 +1,20 @@
+{
+    "view": {
+        "type": "perspective",
+        "prp": [0, 0, 10],
+        "srp": [0, 0, 0],
+        "vup": [0, 1, 0],
+        "clip": [-4, 20, -1, 17, 5, 75]
+    },
+    "models": [
+        {
+            "type": "sphere",
+            "center": [0, 0, 0],
+            "radius": 10,
+            "slices": 12,
+            "stacks": 12,
+            "vertices": [],
+            "edges": []
+        }
+    ]
+}
