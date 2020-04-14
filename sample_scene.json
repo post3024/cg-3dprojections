@@ -41,7 +41,11 @@
             "center": [0, 0, 0],
             "radius": 5,
             "slices": 12,
-            "stacks": 12
+            "stacks": 12,
+            "animation": {
+                "axis": "y",
+                "rps": 0.5
+            }
 
         }
     ]
