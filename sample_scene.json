@@ -4,19 +4,19 @@
         "prp": [0, 0, 10],
         "srp": [0, 0, 0],
         "vup": [0, 1, 0],
-        "clip": [-4, 20, -1, 17, 5, 75]
+        "clip": [-5, 20, -1, 17, 5, 75]
     },
     "models": [
         {
             "type": "cube",
-            "center": [4, 4, -10],
-            "width": 8,
-            "height": 8,
-            "depth": 8
+            "center": [0, 100, -50],
+            "width": 20,
+            "height": 20,
+            "depth": 20
         },
         {
             "type": "cylinder",
-            "center": [50, 50, -49],
+            "center": [50, 30, -30],
             "radius": 10,
             "height": 50,
             "sides": 20,
@@ -27,7 +27,7 @@
         },
         {
             "type": "cone",
-            "center": [70, 100, -49],
+            "center": [100, 100, -30],
             "radius": 10,
             "height": 50,
             "sides": 20,
@@ -38,10 +38,11 @@
         },
         {
             "type": "sphere",
-            "center": [30, 30, -10],
-            "radius": 10,
+            "center": [0, 0, 0],
+            "radius": 5,
             "slices": 12,
             "stacks": 12
+
         }
     ]
 }

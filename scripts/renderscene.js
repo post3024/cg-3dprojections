@@ -73,21 +73,21 @@ function Animate(timestamp) {
 
     // step 1: calculate time (time since start)
     var time = timestamp - start_time;
-    //console.log("time: ", time / 1000);
 
     // step 2: transform models based on time
     var degreePerSec, degree;
     var rotate = new Matrix(4, 4);
     var translateToOrigin = new Matrix(4, 4);
     var translateBack = new Matrix(4, 4);
+
     for(var i = 0; i < scene.models.length; i++) {
       if(scene.models[i].animation) {
         Mat4x4Translate(translateToOrigin, -scene.models[i].center[0], -scene.models[i].center[1], -scene.models[i].center[2]);
         Mat4x4Translate(translateBack, scene.models[i].center[0], scene.models[i].center[1], scene.models[i].center[2]);
         degreePerSec = 360 * scene.models[i].animation.rps;
         console.log("Degree per sec:", degreePerSec);
-        console.log(time / 1000);
         degree = (degreePerSec * (time / 1000)) % 360;
+        //degree = ((time*1000) % scene.models[i].animation.rps) / 2*Math.PI;
         console.log("degree: ", degree);
         if(scene.models[i].animation.axis === 'x') {
           Mat4x4RotateX(rotate, degree * Math.PI / 180);
@@ -98,6 +98,7 @@ function Animate(timestamp) {
         else {
           Mat4x4RotateZ(rotate, degree * Math.PI / 180);
         }
+
         for(var j = 0; j < scene.models[i].vertices.length; j++) {
           scene.models[i].vertices[j] = Matrix.multiply([translateBack, rotate, translateToOrigin, scene.models[i].vertices[j]]);
         }
@@ -115,7 +116,7 @@ function Animate(timestamp) {
 // Main drawing code - use information contained in variable `scene`
 // remember to convert from homogeneous to cartesian
 function DrawScene() {
-    //console.log(scene.models[0].vertices);
+    console.log(scene.models[0].edges);
     var transform = new Matrix(4,4);
     var projection = new Matrix(4,4);
     var projToWindow = new Matrix(4, 4);
@@ -471,6 +472,7 @@ function LoadNewScene() {
               var center = scene.models[i].center;
               var radius = scene.models[i].radius;
               var baseCircleVertices = [];
+
               // create a circle in the xy plane
               var theta = 360 / (scene.models[i].stacks * 2);
               var x = center[0] + radius;
@@ -497,7 +499,7 @@ function LoadNewScene() {
               Mat4x4RotateY(rotate, degree * Math.PI / 180);
               Mat4x4Translate(translateBack, center[0], center[1], center[2]);
 
-              for(var k = 0; k < (scene.models[i].slices / 2) - 1; k++) {
+              for(var k = 0; k < scene.models[i].slices - 1; k++) {
                 scene.models[i].edges.push([]);
                 var beginning_edge = scene.models[i].vertices.length;
                 for(var l = 0; l < baseCircleVertices.length; l++) {
@@ -509,7 +511,18 @@ function LoadNewScene() {
                 scene.models[i].edges[k+1].push(beginning_edge);
               }
 
-//console.log("edges:", scene.models[i].edges);
+              var edges = [];
+              for(var j = 0; j < scene.models[i].edges.length; j++) {
+                edges.push(scene.models[i].edges[j]);
+              }
+
+              for(var j = 0; j < (scene.models[i].stacks * 2) + 1; j++) {
+                scene.models[i].edges.push([]);
+                for(var k = 0; k < edges.length; k++) {
+                  scene.models[i].edges[scene.models[i].edges.length - 1].push(edges[k][j]);
+                }
+                scene.models[i].edges[scene.models[i].edges.length - 1].push(edges[0][j]);
+              }
 
           }
             else {
@@ -533,7 +546,7 @@ function OnKeyDown(event) {
             var rotate = new Matrix(4, 4);
             var translate = new Matrix(4, 4);
             Mat4x4Translate(translate, -scene.view.prp.x, -scene.view.prp.y, -scene.view.prp.z);
-            Mat4x4RotateY(rotate, -0.1);
+            Mat4x4RotateY(rotate, -0.05);
             var srp = Vector4(scene.view.srp.x, scene.view.srp.y, scene.view.srp.z, 1);
             var prp = Vector4(scene.view.prp.x, scene.view.prp.y, scene.view.prp.z, 1);
             srp = Matrix.multiply([rotate, srp]);
@@ -555,7 +568,7 @@ function OnKeyDown(event) {
             var rotate = new Matrix(4, 4);
             var translate = new Matrix(4, 4);
             Mat4x4Translate(translate, -scene.view.prp.x, -scene.view.prp.y, -scene.view.prp.z);
-            Mat4x4RotateY(rotate, 0.1);
+            Mat4x4RotateY(rotate, 0.05);
             var srp = Vector4(scene.view.srp.x, scene.view.srp.y, scene.view.srp.z, 1);
             var prp = Vector4(scene.view.prp.x, scene.view.prp.y, scene.view.prp.z, 1);
             srp = Matrix.multiply([rotate, srp]);
